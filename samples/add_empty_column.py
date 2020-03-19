@@ -34,6 +34,8 @@ def add_empty_column(table_id):
     table.schema = new_schema
     table = client.update_table(table, ["schema"])  # Make an API request.
 
+    # The update was successful, but we'll confirm explicitly by comparing
+    # the schemas from before and after the update.
     if len(table.schema) == len(original_schema) + 1 == len(new_schema):
         print("A new column has been added.")
     else:
