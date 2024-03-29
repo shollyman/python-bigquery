@@ -40,21 +40,48 @@ SYSTEM_TEST_PYTHON_VERSIONS = ["3.8", "3.11", "3.12"]
 UNIT_TEST_PYTHON_VERSIONS = ["3.7", "3.8", "3.12"]
 CURRENT_DIRECTORY = pathlib.Path(__file__).parent.absolute()
 
-# 'docfx' is excluded since it only needs to run in 'docs-presubmit'
-nox.options.sessions = [
-    "unit_noextras",
-    "unit",
-    "system",
-    "snippets",
-    "cover",
-    "lint",
-    "lint_setup_py",
-    "blacken",
-    "mypy",
-    "mypy_samples",
-    "pytype",
-    "docs",
-]
+# To simplify running groups of sessions together, we define a map
+# of groupings to the associated list.
+SESSION_GROUPS = {
+    # Note: 'docfx' session is not included, as it's only run 
+    # explicitly within its own job.
+    "DEFAULT": [
+        "unit_noextras",
+        "unit",
+        "system",
+        "snippets",
+        "cover",
+        "lint",
+        "lint_setup_py",
+        "blacken",
+        "mypy",
+        "mypy_samples",
+        "pytype",
+        "docs", 
+    ],
+    "PRESUBMIT": [
+            "unit",
+            "unit_noextras",
+            "cover",
+            "docs",
+    ],
+    "PRESUBMIT_LINTING_TYPING": [
+        "line",
+        "lint_setup_py",
+        "blacken",
+        "mypy", 
+        "mypy_samples",
+        "pytype",
+    ],
+}
+
+def derived_session_list():
+    """ filter the default sessions if a filter is specified """
+    filter = os.environ.get("SESSION_GROUP", "DEFAULT")
+    return SESSION_GROUPS[filter]
+    
+# configure nox to default to a derived list of sessions.
+nox.options.sessions = derived_session_list()
 
 
 def default(session, install_extras=True):
@@ -168,10 +195,6 @@ def system(session):
         CURRENT_DIRECTORY / "testing" / f"constraints-{session.python}.txt"
     )
 
-    # Check the value of `RUN_SYSTEM_TESTS` env var. It defaults to true.
-    if os.environ.get("RUN_SYSTEM_TESTS", "true") == "false":
-        session.skip("RUN_SYSTEM_TESTS is set to false, skipping")
-
     # Sanity check: Only run system tests if the environment variable is set.
     if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", ""):
         session.skip("Credentials must be set via environment variable.")
@@ -247,10 +270,6 @@ def mypy_samples(session):
 @nox.session(python=SYSTEM_TEST_PYTHON_VERSIONS)
 def snippets(session):
     """Run the snippets test suite."""
-
-    # Check the value of `RUN_SNIPPETS_TESTS` env var. It defaults to true.
-    if os.environ.get("RUN_SNIPPETS_TESTS", "true") == "false":
-        session.skip("RUN_SNIPPETS_TESTS is set to false, skipping")
 
     constraints_path = str(
         CURRENT_DIRECTORY / "testing" / f"constraints-{session.python}.txt"
